@@ -102,8 +102,9 @@ const STATUS_STYLES: Record<string, string> = {
                       <th class="p-4 whitespace-nowrap">Serial</th>
                       <th class="p-4 whitespace-nowrap">JIRA ID</th>
                       <th class="p-4 whitespace-nowrap">CR Name</th>
-                      <th class="p-4 whitespace-nowrap">Current Status</th>
-                      <th class="p-4 whitespace-nowrap">Start Date</th>
+                       <th class="p-4 whitespace-nowrap">Current Status</th>
+                       <th class="p-4 whitespace-nowrap">Responsible Dev</th>
+                       <th class="p-4 whitespace-nowrap">Start Date</th>
                       <th class="p-4 whitespace-nowrap">QA Date</th>
                       <th class="p-4 whitespace-nowrap">UAT Date</th>
                       <th class="p-4 whitespace-nowrap">Live Date</th>
@@ -115,14 +116,19 @@ const STATUS_STYLES: Record<string, string> = {
                         <td class="p-4 text-slate-500 font-mono">{{ startItem() + i }}</td>
                         <td class="p-4 font-mono text-slate-700">{{ p.jira_id ?? '–' }}</td>
                         <td class="p-4">
-                          <div class="font-bold text-slate-800 truncate max-w-[250px]" [title]="p.cr_name">{{ p.cr_name }}</div>
+                          <a [routerLink]="['/projects', p.id]" class="font-bold text-blue-600 hover:text-blue-800 hover:underline truncate max-w-[250px] inline-block" [title]="p.cr_name">
+                            {{ p.cr_name }}
+                          </a>
                         </td>
                         <td class="p-4">
                           <span class="rounded-full px-3 py-1 text-[10px] font-bold uppercase shadow-sm" [class]="statusClass(p.current_status)">
                             {{ p.current_status }}
-                          </span>
-                        </td>
-                        <td class="p-4 text-slate-600 whitespace-nowrap">{{ p.start_date ?? '–' }}</td>
+                           </span>
+                         </td>
+                         <td class="p-4 text-slate-600 italic">
+                           {{ getResponsibleDevs(p) }}
+                         </td>
+                         <td class="p-4 text-slate-600 whitespace-nowrap">{{ p.start_date ?? '–' }}</td>
                         <td class="p-4 text-slate-600 whitespace-nowrap">{{ p.qa_release_date ?? '–' }}</td>
                         <td class="p-4 text-slate-600 whitespace-nowrap">{{ p.uat_release_date ?? '–' }}</td>
                         <td class="p-4 text-slate-600 whitespace-nowrap font-bold">{{ p.live_release_date ?? '–' }}</td>
@@ -294,5 +300,10 @@ export class TeamDetailComponent implements OnInit {
 
   statusClass(status: string): string {
     return STATUS_STYLES[status] ?? 'bg-slate-200 text-slate-600';
+  }
+
+  getResponsibleDevs(p: TeamProject): string {
+    if (!p.responsible_devs || p.responsible_devs.length === 0) return '–';
+    return p.responsible_devs.map(r => r.name).join(', ');
   }
 }

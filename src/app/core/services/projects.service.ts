@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { Resource } from './resources.service';
 
 export interface Project {
   id: number;
@@ -15,6 +16,7 @@ export interface Project {
   estimated_effort: number | null;
   actual_effort: number | null;
   particulars: string | null;
+  Resources?: Resource[];
 }
 
 export interface ProjectCreateDto {
@@ -32,7 +34,7 @@ export interface ProjectCreateDto {
 
 @Injectable({ providedIn: 'root' })
 export class ProjectsService {
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   list(): Observable<Project[]> {
     return this.http.get<Project[]>(`${environment.apiUrl}/projects`);

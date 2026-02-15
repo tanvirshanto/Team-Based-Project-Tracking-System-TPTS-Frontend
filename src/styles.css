@@ -1,6 +1,8 @@
 @import "primeng/resources/themes/lara-light-blue/theme.css";
+@import "@angular/material/prebuilt-themes/indigo-pink.css";
 @import "primeng/resources/primeng.css";
 @import "primeicons/primeicons.css";
+@import "ngx-toastr/toastr";
 
 @tailwind base;
 @tailwind components;

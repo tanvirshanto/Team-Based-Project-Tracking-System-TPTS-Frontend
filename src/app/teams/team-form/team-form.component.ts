@@ -1,15 +1,27 @@
-import { Component, signal, OnInit, inject } from '@angular/core';
+import { Component, signal, OnInit, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators, FormControl } from '@angular/forms';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { ToastrService } from 'ngx-toastr';
 import { TeamsService, TeamCreateDto } from '../../core/services/teams.service';
 import { ResourcesService, Resource } from '../../core/services/resources.service';
 
 @Component({
-    selector: 'app-team-form',
-    standalone: true,
-    imports: [CommonModule, ReactiveFormsModule, RouterLink],
-    template: `
+  selector: 'app-team-form',
+  standalone: true,
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    RouterLink,
+    MatAutocompleteModule,
+    MatInputModule,
+    MatFormFieldModule
+  ],
+  template: `
     <div class="p-4 md:p-6 max-w-xl">
       <div class="flex items-center gap-4 mb-6">
         <a routerLink="/teams" class="text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-1">
@@ -35,25 +47,22 @@ import { ResourcesService, Resource } from '../../core/services/resources.servic
         
         <div>
           <label class="block text-sm font-semibold text-slate-700 mb-2">Team Manager</label>
-          <select 
-            formControlName="manager_id" 
-            class="w-full rounded-lg border border-slate-300 px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none transition-all appearance-none bg-no-repeat bg-[right_1rem_center]"
-            style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2364748b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-size: .65em auto;"
-          >
-            <option [ngValue]="null">-- Select a manager --</option>
-            @for (r of resources(); track r.id) {
-              <option [ngValue]="r.id">{{ r.name }}</option>
-            }
-          </select>
+          <mat-form-field class="w-full" appearance="fill">
+            <mat-label>Select Manager</mat-label>
+            <input type="text"
+                   matInput
+                   [formControl]="managerSearchControl"
+                   [matAutocomplete]="auto">
+            <mat-autocomplete #auto="matAutocomplete">
+              <mat-option [value]="">-- Select a manager --</mat-option>
+              @for (r of filteredResources(); track r.id) {
+                <mat-option [value]="r.name">{{ r.name }}</mat-option>
+              }
+            </mat-autocomplete>
+          </mat-form-field>
           <p class="text-slate-500 text-[11px] mt-2 font-medium">Managers are selected from existing resources.</p>
         </div>
         
-        @if (error(); as err) {
-          <div class="p-3 rounded-lg bg-red-50 border border-red-100 text-red-600 text-sm font-medium">
-            <i class="pi pi-exclamation-circle mr-2"></i>
-            {{ err }}
-          </div>
-        }
 
         <div class="flex gap-4 pt-4 border-t border-slate-100">
           <button 
@@ -80,62 +89,81 @@ import { ResourcesService, Resource } from '../../core/services/resources.servic
   `,
 })
 export class TeamFormComponent implements OnInit {
-    private fb = inject(FormBuilder);
-    private teamsService = inject(TeamsService);
-    private resourcesService = inject(ResourcesService);
-    private router = inject(Router);
-    private route = inject(ActivatedRoute);
+  private fb = inject(FormBuilder);
+  private teamsService = inject(TeamsService);
+  private resourcesService = inject(ResourcesService);
+  private router = inject(Router);
+  private route = inject(ActivatedRoute);
 
-    isEdit = signal(false);
-    saving = signal(false);
-    error = signal<string | null>(null);
-    resources = signal<Resource[]>([]);
+  isEdit = signal(false);
+  saving = signal(false);
+  private toastr = inject(ToastrService);
+  resources = signal<Resource[]>([]);
 
-    form = this.fb.nonNullable.group({
-        team_name: ['', Validators.required],
-        manager_id: [null as number | null],
+  managerSearchControl = new FormControl('');
+  private managerSearchSignal = toSignal(this.managerSearchControl.valueChanges, { initialValue: '' });
+
+  filteredResources = computed(() => {
+    const search = (this.managerSearchSignal() || '').toLowerCase();
+    const list = this.resources();
+    if (!search) return list;
+    return list.filter(r => r.name.toLowerCase().includes(search));
+  });
+
+  form = this.fb.nonNullable.group({
+    team_name: ['', Validators.required],
+    manager_id: [null as number | null],
+  });
+
+  ngOnInit() {
+    this.resourcesService.list().subscribe({
+      next: (list) => this.resources.set(list),
+      error: () => this.resources.set([]),
     });
 
-    ngOnInit() {
-        this.resourcesService.list().subscribe({
-            next: (list) => this.resources.set(list),
-            error: () => this.resources.set([]),
-        });
-
-        const id = this.route.snapshot.paramMap.get('id');
-        if (id && id !== 'new') {
-            this.isEdit.set(true);
-            this.teamsService.get(+id).subscribe({
-                next: (t) => {
-                    this.form.patchValue({
-                        team_name: t.team_name,
-                        manager_id: t.manager_id ?? null,
-                    });
-                },
-                error: () => this.router.navigate(['/teams']),
-            });
-        }
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id && id !== 'new') {
+      this.isEdit.set(true);
+      this.teamsService.get(+id).subscribe({
+        next: (t) => {
+          this.form.patchValue({
+            team_name: t.team_name,
+            manager_id: t.manager_id ?? null,
+          });
+          if (t.Manager) {
+            this.managerSearchControl.setValue(t.Manager.name);
+          }
+        },
+        error: () => this.router.navigate(['/teams']),
+      });
     }
+  }
 
-    onSubmit() {
-        if (this.form.invalid) return;
-        const v = this.form.getRawValue();
-        const payload: TeamCreateDto = {
-            team_name: v.team_name,
-            manager_id: v.manager_id ?? null,
-        };
+  onSubmit() {
+    if (this.form.invalid) return;
+    const v = this.form.getRawValue();
+    const selectedManagerName = this.managerSearchControl.value;
+    const manager = this.resources().find(r => r.name === selectedManagerName);
 
-        this.saving.set(true);
-        this.error.set(null);
-        const id = this.route.snapshot.paramMap.get('id');
-        const req = this.isEdit() && id ? this.teamsService.update(+id, payload) : this.teamsService.create(payload);
+    const payload: TeamCreateDto = {
+      team_name: v.team_name,
+      manager_id: manager ? manager.id : null,
+    };
 
-        req.subscribe({
-            next: () => this.router.navigate(['/teams']),
-            error: (err) => {
-                this.saving.set(false);
-                this.error.set(err.error?.error || 'Save failed');
-            },
-        });
-    }
+    this.saving.set(true);
+    const id = this.route.snapshot.paramMap.get('id');
+    const isEditMode = this.isEdit() && id;
+    const req = isEditMode ? this.teamsService.update(+id, payload) : this.teamsService.create(payload);
+
+    req.subscribe({
+      next: () => {
+        this.toastr.success(`Team ${isEditMode ? 'updated' : 'created'} successfully`, 'Success');
+        this.router.navigate(['/teams']);
+      },
+      error: (err) => {
+        this.saving.set(false);
+        this.toastr.error(err.error?.error || 'Save failed', 'Error');
+      },
+    });
+  }
 }

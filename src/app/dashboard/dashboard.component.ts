@@ -183,6 +183,7 @@ import { ProjectsService } from '../core/services/projects.service';
                   <th class="p-3 whitespace-nowrap">Engaged Till</th>
                   <th class="p-3 min-w-[200px]">Particular</th>
                   @if (hasJiraOrStatus()) {
+                    <th class="p-3 whitespace-nowrap">CR Name</th>
                     <th class="p-3 whitespace-nowrap">Jira ID</th>
                     <th class="p-3 whitespace-nowrap">Status</th>
                   }
@@ -195,6 +196,7 @@ import { ProjectsService } from '../core/services/projects.service';
                     <td class="p-3 text-slate-600">{{ row.engagedTill || '–' }}</td>
                     <td class="p-3 text-slate-600 max-w-md" [title]="row.particular">{{ row.particular || '–' }}</td>
                     @if (hasJiraOrStatus()) {
+                      <td class="p-3 text-slate-800 font-medium">{{ row.projectCrName || '–' }}</td>
                       <td class="p-3 text-slate-600">{{ row.jiraId || '–' }}</td>
                       <td class="p-3">
                         @if (row.projectStatus) {
@@ -473,6 +475,6 @@ export class DashboardComponent implements OnInit {
   }
 
   hasJiraOrStatus(): boolean {
-    return this.rows().some((r) => r.jiraId || r.projectStatus);
+    return this.rows().some((r) => r.jiraId || r.projectStatus || r.projectCrName);
   }
 }

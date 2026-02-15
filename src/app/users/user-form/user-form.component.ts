@@ -1,13 +1,25 @@
-import { Component, signal, OnInit, inject } from '@angular/core';
+import { Component, signal, OnInit, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators, FormControl } from '@angular/forms';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { ToastrService } from 'ngx-toastr';
 import { UsersService } from '../../core/services/users.service';
 
 @Component({
   selector: 'app-user-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    RouterLink,
+    MatAutocompleteModule,
+    MatInputModule,
+    MatFormFieldModule
+  ],
   template: `
     <div class="p-4 md:p-6">
       <header class="flex items-center gap-4 mb-6">
@@ -55,17 +67,19 @@ import { UsersService } from '../../core/services/users.service';
         </div>
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1">Role</label>
-          <select
-            formControlName="role"
-            class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="User">User</option>
-            <option value="Admin">Admin</option>
-          </select>
+          <mat-form-field class="w-full" appearance="fill">
+            <mat-label>Select Role</mat-label>
+            <input type="text"
+                   matInput
+                   [formControl]="roleSearchControl"
+                   [matAutocomplete]="auto">
+            <mat-autocomplete #auto="matAutocomplete">
+              @for (role of filteredRoles(); track role) {
+                <mat-option [value]="role">{{ role }}</mat-option>
+              }
+            </mat-autocomplete>
+          </mat-form-field>
         </div>
-@if (error(); as err) {
-            <p class="text-red-500 text-sm">{{ err }}</p>
-          }
           <div class="flex gap-3">
             <button
               type="submit"
@@ -93,7 +107,16 @@ export class UserFormComponent implements OnInit {
 
   isEdit = signal(false);
   loading = signal(false);
-  error = signal<string | null>(null);
+  private toastr = inject(ToastrService);
+  roles: ('User' | 'Admin')[] = ['User', 'Admin'];
+
+  roleSearchControl = new FormControl('User' as 'User' | 'Admin');
+  private roleSearchSignal = toSignal(this.roleSearchControl.valueChanges, { initialValue: 'User' as 'User' | 'Admin' });
+
+  filteredRoles = computed(() => {
+    const search = (this.roleSearchSignal() || '').toLowerCase();
+    return this.roles.filter(r => r.toLowerCase().includes(search));
+  });
 
   form = this.fb.nonNullable.group({
     username: ['', Validators.required],
@@ -118,6 +141,7 @@ export class UserFormComponent implements OnInit {
               email: u.email ?? '',
               role: u.role as 'User' | 'Admin',
             });
+            this.roleSearchControl.setValue(u.role as 'User' | 'Admin');
           }
         },
       });
@@ -130,24 +154,34 @@ export class UserFormComponent implements OnInit {
   onSubmit() {
     if (this.form.invalid) return;
     this.loading.set(true);
-    this.error.set(null);
-    const { username, email, role, password } = this.form.getRawValue();
+    const { username, email, password } = this.form.getRawValue();
+    const role = (this.roleSearchControl.value || 'User') as 'User' | 'Admin';
     if (this.isEdit()) {
       const id = Number(this.route.snapshot.paramMap.get('id'));
       this.usersService.update(id, { username, email: email || undefined, role, password: password || undefined }).subscribe({
-        next: () => this.router.navigate(['/users']),
+        next: () => {
+          this.toastr.success('User updated successfully', 'Success');
+          this.router.navigate(['/users']);
+        },
         error: (err) => {
           this.loading.set(false);
-          this.error.set(err.error?.error || 'Update failed');
+          this.toastr.error(err.error?.error || 'Update failed', 'Error');
         },
       });
     } else {
-      if (!password) return;
+      if (!password) {
+        this.loading.set(false);
+        this.toastr.error('Password is required', 'Error');
+        return;
+      }
       this.usersService.create({ username, email: email || undefined, role, password }).subscribe({
-        next: () => this.router.navigate(['/users']),
+        next: () => {
+          this.toastr.success('User created successfully', 'Success');
+          this.router.navigate(['/users']);
+        },
         error: (err) => {
           this.loading.set(false);
-          this.error.set(err.error?.error || 'Create failed');
+          this.toastr.error(err.error?.error || 'Create failed', 'Error');
         },
       });
     }

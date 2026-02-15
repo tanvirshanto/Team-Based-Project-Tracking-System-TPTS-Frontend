@@ -11,6 +11,7 @@ export interface ResourceEngagementRow {
   particular: string;
   jiraId?: string;
   projectStatus?: string;
+  projectCrName?: string;
 }
 
 @Injectable({ providedIn: 'root' })

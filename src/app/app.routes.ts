@@ -26,6 +26,8 @@ export const routes: Routes = [
       { path: 'projects', loadComponent: () => import('./projects/project-list/project-list.component').then((m) => m.ProjectListComponent) },
       { path: 'projects/new', loadComponent: () => import('./projects/project-form/project-form.component').then((m) => m.ProjectFormComponent) },
       { path: 'projects/:id/edit', loadComponent: () => import('./projects/project-form/project-form.component').then((m) => m.ProjectFormComponent) },
+      { path: 'projects/:id', loadComponent: () => import('./projects/project-view/project-view.component').then((m) => m.ProjectViewComponent) },
+      { path: 'projects/:id/mapping', loadComponent: () => import('./projects/project-mapping/project-mapping.component').then((m) => m.ProjectMappingComponent) },
       { path: 'resources', loadComponent: () => import('./resources/resource-list/resource-list.component').then((m) => m.ResourceListComponent) },
       { path: 'resources/new', loadComponent: () => import('./resources/resource-form/resource-form.component').then((m) => m.ResourceFormComponent) },
       { path: 'resources/:id/edit', loadComponent: () => import('./resources/resource-form/resource-form.component').then((m) => m.ResourceFormComponent) },

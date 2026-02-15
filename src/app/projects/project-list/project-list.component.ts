@@ -1,12 +1,16 @@
-import { Component, signal, OnInit, computed } from '@angular/core';
+import { Component, signal, OnInit, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ProjectsService, Project } from '../../core/services/projects.service';
+import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 
 @Component({
   selector: 'app-project-list',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, MatIconModule, MatButtonModule, MatDialogModule],
   template: `
     <div class="p-4 md:p-6">
       <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -25,13 +29,14 @@ import { ProjectsService, Project } from '../../core/services/projects.service';
                   <th class="p-3">CR Name</th>
                   <th class="p-3">Jira ID</th>
                   <th class="p-3">Status</th>
+                  <th class="p-3">Responsible Dev</th>
                   <th class="p-3">Start</th>
                   <th class="p-3">QA Release</th>
                   <th class="p-3">UAT Release</th>
                   <th class="p-3">Live Release</th>
                   <th class="p-3">Est. Effort</th>
                   <th class="p-3">Actual Effort</th>
-                  <th class="p-3 w-24">Actions</th>
+                  <th class="p-3 w-48 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -42,14 +47,22 @@ import { ProjectsService, Project } from '../../core/services/projects.service';
                     <td class="p-3">
                       <span class="rounded px-2 py-0.5 text-xs font-medium" [class]="statusClass(p.current_status)">{{ p.current_status || '–' }}</span>
                     </td>
+                    <td class="p-3 text-slate-600">
+                      {{ getResponsibleDevs(p) }}
+                    </td>
                     <td class="p-3 text-slate-600">{{ p.start_date ? (p.start_date | date:'shortDate') : '–' }}</td>
                     <td class="p-3 text-slate-600">{{ p.qa_release_date ? (p.qa_release_date | date:'shortDate') : '–' }}</td>
                     <td class="p-3 text-slate-600">{{ p.uat_release_date ? (p.uat_release_date | date:'shortDate') : '–' }}</td>
                     <td class="p-3 text-slate-600">{{ p.live_release_date ? (p.live_release_date | date:'shortDate') : '–' }}</td>
                     <td class="p-3 text-slate-600">{{ p.estimated_effort ?? '–' }}</td>
                     <td class="p-3 text-slate-600">{{ p.actual_effort ?? '–' }}</td>
-                    <td class="p-3">
-                      <a [routerLink]="['/projects', p.id, 'edit']" class="text-blue-600 hover:underline">Edit</a>
+                    <td class="p-3 flex justify-center gap-1">
+                      <a [routerLink]="['/projects', p.id]" mat-icon-button color="primary" title="Mapping and Update Details">
+                        <mat-icon>settings</mat-icon>
+                      </a>
+                      <button (click)="onDelete(p.id)" mat-icon-button color="warn" title="Delete Project">
+                        <mat-icon>delete</mat-icon>
+                      </button>
                     </td>
                   </tr>
                 }
@@ -169,5 +182,35 @@ export class ProjectListComponent implements OnInit {
     if (s === 'Dev Ongoing') return 'bg-blue-100 text-blue-800';
     if (s === 'SRS Grooming') return 'bg-slate-200 text-slate-700';
     return 'bg-slate-200 text-slate-600';
+  }
+
+  getResponsibleDevs(p: Project): string {
+    if (!p.Resources || p.Resources.length === 0) return '–';
+    return p.Resources.map(r => r.name).join(', ');
+  }
+
+  onDelete(id: number) {
+    const dialogRef = inject(MatDialog).open(ConfirmDialogComponent, {
+      width: '400px',
+      data: {
+        title: 'Delete Project',
+        message: 'Are you sure you want to delete this project? This action cannot be undone.',
+        confirmText: 'Delete',
+        color: 'warn'
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.projectsService.delete(id).subscribe({
+          next: () => {
+            this.projects.update(list => list.filter(p => p.id !== id));
+          },
+          error: (err) => {
+            alert(err.error?.error || 'Failed to delete project');
+          }
+        });
+      }
+    });
   }
 }

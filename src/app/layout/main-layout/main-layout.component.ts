@@ -10,7 +10,13 @@ import { AuthService } from '../../core/services/auth.service';
   template: `
     <div class="flex h-screen bg-slate-50 overflow-hidden">
       <!-- Sidebar -->
-      <aside class="flex flex-col bg-slate-900 text-white w-64 shrink-0 border-r border-slate-800">
+      <aside 
+        class="flex flex-col bg-slate-900 text-white shrink-0 border-r border-slate-800 transition-all duration-300 ease-in-out"
+        [class.w-64]="!isSidebarCollapsed()"
+        [class.w-0]="isSidebarCollapsed()"
+        [class.opacity-0]="isSidebarCollapsed()"
+        [class.invisible]="isSidebarCollapsed()"
+      >
         <div class="p-6 border-b border-slate-800">
           <div class="flex items-center gap-3">
             <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -77,21 +83,22 @@ import { AuthService } from '../../core/services/auth.service';
         </nav>
 
         <div class="p-4 border-t border-slate-800">
-          <div class="bg-slate-800/50 rounded-xl p-4">
-            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-2">Support</p>
-            <a href="#" class="flex items-center gap-2 text-slate-400 hover:text-white text-xs transition-colors">
-              <i class="pi pi-question-circle"></i>
-              Documentation
-            </a>
-          </div>
+
         </div>
       </aside>
 
       <!-- Main Content Container -->
       <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
         <!-- Top Header -->
-        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0 relative z-20">
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 relative z-20">
           <div class="flex items-center gap-4">
+            <button 
+              (click)="toggleSidebar()" 
+              class="p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors active:scale-95"
+              title="Toggle Sidebar"
+            >
+              <i class="pi" [ngClass]="isSidebarCollapsed() ? 'pi-bars' : 'pi-align-left'"></i>
+            </button>
             <h2 class="text-sm font-semibold text-slate-400">Workspace / <span class="text-slate-800">{{ getPageTitle() }}</span></h2>
           </div>
 
@@ -126,7 +133,13 @@ import { AuthService } from '../../core/services/auth.service';
   `,
 })
 export class MainLayoutComponent {
+  isSidebarCollapsed = signal(false);
+
   constructor(public auth: AuthService, private router: Router) { }
+
+  toggleSidebar() {
+    this.isSidebarCollapsed.update(v => !v);
+  }
 
   isActive(route: string): boolean {
     return this.router.url === route;
