@@ -3,13 +3,15 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ProjectsService, Project } from '../../core/services/projects.service';
+import { ProjectMappingDialogComponent } from './project-mapping-dialog.component';
 
 @Component({
-    selector: 'app-project-view',
-    standalone: true,
-    imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule],
-    template: `
+  selector: 'app-project-view',
+  standalone: true,
+  imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule, MatDialogModule],
+  template: `
     <div class="p-4 md:p-6 max-w-5xl mx-auto">
       <!-- Header -->
       <div class="flex items-center justify-between mb-8">
@@ -23,9 +25,9 @@ import { ProjectsService, Project } from '../../core/services/projects.service';
           <a [routerLink]="['/projects', project()?.id, 'edit']" mat-stroked-button color="primary">
             <mat-icon>edit</mat-icon> Edit Project
           </a>
-          <a [routerLink]="['/projects', project()?.id, 'mapping']" mat-flat-button color="primary">
+          <button (click)="onManageResources()" mat-flat-button color="primary">
             <mat-icon>group_add</mat-icon> Manage Resources
-          </a>
+          </button>
         </div>
       </div>
 
@@ -128,7 +130,7 @@ import { ProjectsService, Project } from '../../core/services/projects.service';
                         <mat-icon class="text-slate-300">person_off</mat-icon>
                       </div>
                       <p class="text-xs text-slate-400 font-medium">No resources allocated yet.</p>
-                      <button [routerLink]="['/projects', p.id, 'mapping']" class="mt-4 text-blue-600 text-xs font-bold hover:underline">
+                      <button (click)="onManageResources()" class="mt-4 text-blue-600 text-xs font-bold hover:underline">
                         Assign Resources
                       </button>
                     </div>
@@ -146,35 +148,53 @@ import { ProjectsService, Project } from '../../core/services/projects.service';
       }
     </div>
   `,
-    styles: [`
+  styles: [`
     :host { display: block; }
   `]
 })
 export class ProjectViewComponent implements OnInit {
-    private route = inject(ActivatedRoute);
-    private projectsService = inject(ProjectsService);
+  private route = inject(ActivatedRoute);
+  private projectsService = inject(ProjectsService);
+  private dialog = inject(MatDialog);
 
-    project = signal<Project | null>(null);
-    loading = signal(true);
+  project = signal<Project | null>(null);
+  loading = signal(true);
 
-    ngOnInit() {
-        const id = this.route.snapshot.paramMap.get('id');
-        if (id) {
-            this.loadProject(+id);
-        }
+  ngOnInit() {
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id) {
+      this.loadProject(+id);
     }
+  }
 
-    loadProject(id: number) {
-        this.loading.set(true);
-        this.projectsService.get(id).subscribe({
-            next: (data) => {
-                this.project.set(data);
-                this.loading.set(false);
-            },
-            error: (err) => {
-                console.error('Failed to load project', err);
-                this.loading.set(false);
-            }
-        });
-    }
+  loadProject(id: number) {
+    this.loading.set(true);
+    this.projectsService.get(id).subscribe({
+      next: (data) => {
+        this.project.set(data);
+        this.loading.set(false);
+      },
+      error: (err) => {
+        console.error('Failed to load project', err);
+        this.loading.set(false);
+      }
+    });
+  }
+
+  onManageResources() {
+    const p = this.project();
+    if (!p) return;
+
+    const dialogRef = this.dialog.open(ProjectMappingDialogComponent, {
+      width: '800px',
+      data: { projectId: p.id },
+      disableClose: true
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.loadProject(p.id);
+      }
+    });
+  }
 }

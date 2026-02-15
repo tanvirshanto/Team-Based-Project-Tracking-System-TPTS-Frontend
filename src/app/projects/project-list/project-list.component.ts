@@ -144,6 +144,7 @@ export class ProjectListComponent implements OnInit {
     return Array.from({ length: total }, (_, i) => i + 1);
   });
 
+  private dialog = inject(MatDialog);
   constructor(private projectsService: ProjectsService) { }
 
   ngOnInit() {
@@ -190,7 +191,7 @@ export class ProjectListComponent implements OnInit {
   }
 
   onDelete(id: number) {
-    const dialogRef = inject(MatDialog).open(ConfirmDialogComponent, {
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
       width: '400px',
       data: {
         title: 'Delete Project',
