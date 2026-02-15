@@ -1,6 +1,7 @@
 import { Component, signal, OnInit, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -10,12 +11,25 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
 @Component({
   selector: 'app-project-list',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatIconModule, MatButtonModule, MatDialogModule],
+  imports: [CommonModule, RouterLink, MatIconModule, MatButtonModule, MatDialogModule, FormsModule],
   template: `
     <div class="p-4 md:p-6">
       <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <h1 class="text-2xl font-semibold text-slate-800">Project List</h1>
-        <a routerLink="/projects/new" class="rounded-lg bg-blue-600 text-white px-4 py-2 font-medium hover:bg-blue-700">Create Project</a>
+        <div class="flex items-center gap-4">
+          <h1 class="text-2xl font-semibold text-slate-800">Project List</h1>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <mat-icon class="text-slate-400 scale-75">search</mat-icon>
+            </span>
+            <input 
+              type="text" 
+              [(ngModel)]="searchFilter" 
+              placeholder="Search CR Name, Jira ID, or Status..." 
+              class="block w-80 pl-10 pr-3 py-2 border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
+            >
+          </div>
+        </div>
+        <a routerLink="/projects/new" class="rounded-lg bg-blue-600 text-white px-4 py-2 font-medium hover:bg-blue-700 shadow-sm transition-all active:scale-95">Create Project</a>
       </div>
 
       <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -71,12 +85,12 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
           </div>
 
           <!-- Pagination -->
-          @if (projects().length > 0) {
+          @if (filteredProjects().length > 0) {
             <div class="px-4 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-4 flex-wrap">
               <div class="text-sm text-slate-600">
                 Showing <span class="font-medium text-slate-800">{{ startItem() }}</span> to 
                 <span class="font-medium text-slate-800">{{ endItem() }}</span> of 
-                <span class="font-medium text-slate-800">{{ projects().length }}</span> results
+                <span class="font-medium text-slate-800">{{ filteredProjects().length }}</span> results
               </div>
               <div class="flex items-center gap-2">
                 <button 
@@ -112,8 +126,8 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
             </div>
           }
 
-          @if (projects().length === 0) {
-            <p class="p-8 text-center text-slate-500">No projects. <a routerLink="/projects/new" class="text-blue-600 hover:underline">Create one</a>.</p>
+          @if (filteredProjects().length === 0) {
+            <p class="p-8 text-center text-slate-500">No projects found. @if(searchFilter()) { Try adjusting your search. } @else { <a routerLink="/projects/new" class="text-blue-600 hover:underline">Create one</a>. }</p>
           }
         }
       </div>
@@ -123,21 +137,35 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
 export class ProjectListComponent implements OnInit {
   projects = signal<Project[]>([]);
   loading = signal(true);
+  searchFilter = signal('');
+
+  filteredProjects = computed(() => {
+    const query = this.searchFilter().toLowerCase().trim();
+    if (!query) return this.projects();
+    return this.projects().filter(p =>
+      p.cr_name.toLowerCase().includes(query) ||
+      (p.jira_id || '').toLowerCase().includes(query) ||
+      (p.current_status || '').toLowerCase().includes(query)
+    );
+  });
 
   // Pagination state
   currentPage = signal(1);
   pageSize = signal(10);
 
-  totalPages = computed(() => Math.ceil(this.projects().length / this.pageSize()));
+  totalPages = computed(() => Math.ceil(this.filteredProjects().length / this.pageSize()));
 
   paginatedProjects = computed(() => {
     const start = (this.currentPage() - 1) * this.pageSize();
     const end = start + this.pageSize();
-    return this.projects().slice(start, end);
+    return this.filteredProjects().slice(start, end);
   });
 
-  startItem = computed(() => ((this.currentPage() - 1) * this.pageSize()) + 1);
-  endItem = computed(() => Math.min(this.currentPage() * this.pageSize(), this.projects().length));
+  startItem = computed(() => {
+    if (this.filteredProjects().length === 0) return 0;
+    return ((this.currentPage() - 1) * this.pageSize()) + 1;
+  });
+  endItem = computed(() => Math.min(this.currentPage() * this.pageSize(), this.filteredProjects().length));
 
   totalPagesArray = computed(() => {
     const total = this.totalPages();

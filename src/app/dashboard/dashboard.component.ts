@@ -1,5 +1,7 @@
 import { Component, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { MatIconModule } from '@angular/material/icon';
 import { DashboardService, ResourceEngagementRow } from '../core/services/dashboard.service';
 import { TeamsService } from '../core/services/teams.service';
 import { ProjectsService } from '../core/services/projects.service';
@@ -7,7 +9,7 @@ import { ProjectsService } from '../core/services/projects.service';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule, MatIconModule],
   template: `
     <div class="p-4 md:p-6">
       <h1 class="text-2xl font-semibold text-slate-800 mb-6">Dashboard</h1>
@@ -163,11 +165,23 @@ import { ProjectsService } from '../core/services/projects.service';
         <div class="mt-8"></div>
       </section>
 
-      <!-- Resource Engagement Table -->
-      <section class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div class="px-4 py-3 border-b border-slate-200 bg-slate-50">
-          <h2 class="text-lg font-semibold text-slate-800">Resource engagement</h2>
-          <p class="text-slate-500 text-sm mt-0.5">All resources with current engagement, status and particulars from projects</p>
+      <section class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden mt-6">
+        <div class="px-4 py-3 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-semibold text-slate-800">Resource engagement</h2>
+            <p class="text-slate-500 text-sm mt-0.5">All resources with current engagement, status and particulars from projects</p>
+          </div>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <mat-icon class="text-slate-400 scale-75">search</mat-icon>
+            </span>
+            <input 
+              type="text" 
+              [(ngModel)]="searchFilter" 
+              placeholder="Search Resource, CR Name, Jira ID, or Status..." 
+              class="block w-96 pl-10 pr-3 py-2 border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
+            >
+          </div>
         </div>
         @if (loading()) {
           <div class="p-8 text-center text-slate-500">
@@ -212,13 +226,12 @@ import { ProjectsService } from '../core/services/projects.service';
             </table>
           </div>
 
-          <!-- Pagination -->
-          @if (rows().length > 0) {
+          @if (filteredRows().length > 0) {
             <div class="px-4 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-4 flex-wrap">
               <div class="text-sm text-slate-600">
                 Showing <span class="font-medium text-slate-800">{{ startItem() }}</span> to 
                 <span class="font-medium text-slate-800">{{ endItem() }}</span> of 
-                <span class="font-medium text-slate-800">{{ rows().length }}</span> results
+                <span class="font-medium text-slate-800">{{ filteredRows().length }}</span> results
               </div>
               <div class="flex items-center gap-2">
                 <button 
@@ -254,8 +267,8 @@ import { ProjectsService } from '../core/services/projects.service';
             </div>
           }
 
-          @if (rows().length === 0) {
-            <p class="p-8 text-center text-slate-500">No engagement data.</p>
+          @if (filteredRows().length === 0) {
+            <p class="p-8 text-center text-slate-500">No engagement data found. @if(searchFilter()) { Try adjusting your search. }</p>
           }
         }
       </section>
@@ -288,6 +301,19 @@ export class DashboardComponent implements OnInit {
   teams = signal<any[]>([]);
   projects = signal<any[]>([]);
   currentYear = new Date().getFullYear();
+  searchFilter = signal('');
+
+  filteredRows = computed(() => {
+    const query = this.searchFilter().toLowerCase().trim();
+    if (!query) return this.rows();
+    return this.rows().filter(r =>
+      r.resourceName.toLowerCase().includes(query) ||
+      (r.particular || '').toLowerCase().includes(query) ||
+      (r.projectCrName || '').toLowerCase().includes(query) ||
+      (r.jiraId || '').toLowerCase().includes(query) ||
+      (r.projectStatus || '').toLowerCase().includes(query)
+    );
+  });
 
   // Computed statistics
   totalTeams = computed(() => this.teams().length);
@@ -398,19 +424,19 @@ export class DashboardComponent implements OnInit {
   currentPage = signal(1);
   pageSize = signal(10);
 
-  totalPages = computed(() => Math.ceil(this.rows().length / this.pageSize()));
+  totalPages = computed(() => Math.ceil(this.filteredRows().length / this.pageSize()));
 
   paginatedRows = computed(() => {
     const start = (this.currentPage() - 1) * this.pageSize();
     const end = start + this.pageSize();
-    return this.rows().slice(start, end);
+    return this.filteredRows().slice(start, end);
   });
 
   startItem = computed(() => {
-    if (this.rows().length === 0) return 0;
+    if (this.filteredRows().length === 0) return 0;
     return ((this.currentPage() - 1) * this.pageSize()) + 1;
   });
-  endItem = computed(() => Math.min(this.currentPage() * this.pageSize(), this.rows().length));
+  endItem = computed(() => Math.min(this.currentPage() * this.pageSize(), this.filteredRows().length));
 
   totalPagesArray = computed(() => {
     const total = this.totalPages();

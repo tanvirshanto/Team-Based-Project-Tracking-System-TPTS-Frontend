@@ -1,18 +1,33 @@
 import { Component, signal, OnInit, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { MatIconModule } from '@angular/material/icon';
 import { UsersService, UserDto } from '../../core/services/users.service';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-user-list',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, FormsModule, MatIconModule],
   template: `
     <div class="p-4 md:p-6">
       <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <h1 class="text-2xl font-semibold text-slate-800">List User</h1>
-        <a routerLink="/users/new" class="rounded-lg bg-blue-600 text-white px-4 py-2 font-medium hover:bg-blue-700">Add User</a>
+        <div class="flex items-center gap-4">
+          <h1 class="text-2xl font-semibold text-slate-800">List User</h1>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <mat-icon class="text-slate-400 scale-75">search</mat-icon>
+            </span>
+            <input 
+              type="text" 
+              [(ngModel)]="searchFilter" 
+              placeholder="Search Username, Email, or Role..." 
+              class="block w-80 pl-10 pr-3 py-2 border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
+            >
+          </div>
+        </div>
+        <a routerLink="/users/new" class="rounded-lg bg-blue-600 text-white px-4 py-2 font-medium hover:bg-blue-700 shadow-sm transition-all active:scale-95">Add User</a>
       </div>
       @if (loading()) {
         <p class="text-slate-500">Loading...</p>
@@ -58,12 +73,12 @@ import { AuthService } from '../../core/services/auth.service';
           </div>
 
           <!-- Pagination -->
-          @if (users().length > 0) {
+          @if (filteredUsers().length > 0) {
             <div class="px-4 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-4 flex-wrap">
               <div class="text-sm text-slate-600">
                 Showing <span class="font-medium text-slate-800">{{ startItem() }}</span> to 
                 <span class="font-medium text-slate-800">{{ endItem() }}</span> of 
-                <span class="font-medium text-slate-800">{{ users().length }}</span> results
+                <span class="font-medium text-slate-800">{{ filteredUsers().length }}</span> results
               </div>
               <div class="flex items-center gap-2">
                 <button 
@@ -99,8 +114,8 @@ import { AuthService } from '../../core/services/auth.service';
             </div>
           }
 
-          @if (users().length === 0) {
-            <p class="p-8 text-center text-slate-500">No users yet.</p>
+          @if (filteredUsers().length === 0) {
+            <p class="p-8 text-center text-slate-500">No users found. @if(searchFilter()) { Try adjusting your search. }</p>
           }
         </div>
       }
@@ -113,21 +128,35 @@ export class UserListComponent implements OnInit {
   users = signal<UserDto[]>([]);
   loading = signal(true);
   currentUserId = signal<number | null>(null);
+  searchFilter = signal('');
+
+  filteredUsers = computed(() => {
+    const query = this.searchFilter().toLowerCase().trim();
+    if (!query) return this.users();
+    return this.users().filter(u =>
+      u.username.toLowerCase().includes(query) ||
+      (u.email || '').toLowerCase().includes(query) ||
+      (u.role || '').toLowerCase().includes(query)
+    );
+  });
 
   // Pagination state
   currentPage = signal(1);
   pageSize = signal(10);
 
-  totalPages = computed(() => Math.ceil(this.users().length / this.pageSize()));
+  totalPages = computed(() => Math.ceil(this.filteredUsers().length / this.pageSize()));
 
   paginatedUsers = computed(() => {
     const start = (this.currentPage() - 1) * this.pageSize();
     const end = start + this.pageSize();
-    return this.users().slice(start, end);
+    return this.filteredUsers().slice(start, end);
   });
 
-  startItem = computed(() => ((this.currentPage() - 1) * this.pageSize()) + 1);
-  endItem = computed(() => Math.min(this.currentPage() * this.pageSize(), this.users().length));
+  startItem = computed(() => {
+    if (this.filteredUsers().length === 0) return 0;
+    return ((this.currentPage() - 1) * this.pageSize()) + 1;
+  });
+  endItem = computed(() => Math.min(this.currentPage() * this.pageSize(), this.filteredUsers().length));
 
   totalPagesArray = computed(() => {
     const total = this.totalPages();

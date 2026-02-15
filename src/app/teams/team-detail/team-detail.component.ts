@@ -1,6 +1,8 @@
 import { Component, signal, computed, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { MatIconModule } from '@angular/material/icon';
 import { TeamsService, Team, TeamProject, TeamSummaryMember, ResponsibleDev } from '../../core/services/teams.service';
 
 const STATUS_STYLES: Record<string, string> = {
@@ -13,7 +15,7 @@ const STATUS_STYLES: Record<string, string> = {
 @Component({
   selector: 'app-team-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, FormsModule, MatIconModule],
   template: `
     <div class="p-4 md:p-6 space-y-6">
       <div class="flex items-center gap-4 mb-2">
@@ -77,22 +79,39 @@ const STATUS_STYLES: Record<string, string> = {
 
           <!-- Projects table -->
           <section class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
-              <div class="flex items-center gap-2">
-                  <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm">
-                      <i class="pi pi-folder-open"></i>
-                  </div>
-                  <h2 class="text-sm font-semibold text-slate-800 uppercase">Project Assignments</h2>
+            <div class="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50">
+              <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm">
+                        <i class="pi pi-folder-open"></i>
+                    </div>
+                    <h2 class="text-sm font-semibold text-slate-800 uppercase">Project Assignments</h2>
+                </div>
+                <div class="relative">
+                  <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <mat-icon class="text-slate-400 scale-75">search</mat-icon>
+                  </span>
+                  <input 
+                    type="text" 
+                    [(ngModel)]="searchFilter" 
+                    placeholder="Search CR Name, Jira ID, or Status..." 
+                    class="block w-96 pl-10 pr-3 py-2 border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white shadow-sm"
+                  >
+                </div>
               </div>
-               <span class="px-3 py-1 rounded-full bg-slate-200 text-slate-700 font-bold text-[10px]">{{ projects().length }} Total</span>
+               <span class="px-3 py-1 rounded-full bg-slate-200 text-slate-700 font-bold text-[10px]">{{ filteredProjects().length }} results</span>
             </div>
 
             @if (projectsLoading()) {
               <p class="p-8 text-slate-500 text-sm italic">Loading projects...</p>
-            } @else if (projects().length === 0) {
+            } @else if (filteredProjects().length === 0) {
               <div class="p-12 text-center text-slate-500 italic">
                   <i class="pi pi-info-circle text-2xl mb-2 block opacity-30"></i>
-                  No projects assigned to this team.
+                  @if (searchFilter()) {
+                    No projects found for "{{ searchFilter() }}".
+                  } @else {
+                    No projects assigned to this team.
+                  }
               </div>
             } @else {
               <div class="overflow-x-auto max-h-[60vh] overflow-y-auto custom-scrollbar">
@@ -141,7 +160,7 @@ const STATUS_STYLES: Record<string, string> = {
               <!-- Pagination -->
               <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-4 flex-wrap">
                 <div class="text-xs text-slate-500 font-medium">
-                  Showing <span class="text-slate-900 font-semibold">{{ startItem() }}</span> - <span class="text-slate-900 font-semibold">{{ endItem() }}</span> of <span class="text-slate-900 font-semibold">{{ projects().length }}</span>
+                  Showing <span class="text-slate-900 font-semibold">{{ startItem() }}</span> - <span class="text-slate-900 font-semibold">{{ endItem() }}</span> of <span class="text-slate-900 font-semibold">{{ filteredProjects().length }}</span>
                 </div>
                 <div class="flex items-center gap-1.5">
                   <button (click)="prevPage()" [disabled]="currentPage() === 1" class="w-8 h-8 rounded-lg flex items-center justify-center bg-white border border-slate-200 text-slate-600 hover:border-blue-400 hover:text-blue-600 disabled:opacity-30 disabled:pointer-events-none transition-all shadow-sm">
@@ -199,24 +218,36 @@ export class TeamDetailComponent implements OnInit {
   teamSummary = signal<TeamSummaryMember[]>([]);
   projectsLoading = signal(false);
   summaryLoading = signal(false);
+  searchFilter = signal('');
+
+  filteredProjects = computed(() => {
+    const query = this.searchFilter().toLowerCase().trim();
+    if (!query) return this.projects();
+    return this.projects().filter(p =>
+      p.cr_name.toLowerCase().includes(query) ||
+      (p.jira_id || '').toLowerCase().includes(query) ||
+      (p.current_status || '').toLowerCase().includes(query) ||
+      (p.responsible_devs || []).some(dev => dev.name.toLowerCase().includes(query))
+    );
+  });
 
   // Pagination state
   currentPage = signal(1);
   pageSize = signal(10);
 
-  totalPages = computed(() => Math.ceil(this.projects().length / this.pageSize()));
+  totalPages = computed(() => Math.ceil(this.filteredProjects().length / this.pageSize()));
 
   paginatedProjects = computed(() => {
     const start = (this.currentPage() - 1) * this.pageSize();
     const end = start + this.pageSize();
-    return this.projects().slice(start, end);
+    return this.filteredProjects().slice(start, end);
   });
 
   startItem = computed(() => {
-    if (this.projects().length === 0) return 0;
+    if (this.filteredProjects().length === 0) return 0;
     return ((this.currentPage() - 1) * this.pageSize()) + 1;
   });
-  endItem = computed(() => Math.min(this.currentPage() * this.pageSize(), this.projects().length));
+  endItem = computed(() => Math.min(this.currentPage() * this.pageSize(), this.filteredProjects().length));
 
   totalPagesArray = computed(() => {
     const total = this.totalPages();
