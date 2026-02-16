@@ -8,10 +8,12 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ProjectsService, Project } from '../../core/services/projects.service';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 
+import { MatChipsModule } from '@angular/material/chips';
+
 @Component({
   selector: 'app-project-list',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatIconModule, MatButtonModule, MatDialogModule, FormsModule],
+  imports: [CommonModule, RouterLink, MatIconModule, MatButtonModule, MatDialogModule, FormsModule, MatChipsModule],
   template: `
     <div class="p-4 md:p-6">
       <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -24,7 +26,7 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
             <input 
               type="text" 
               [(ngModel)]="searchFilter" 
-              placeholder="Search CR Name, Jira ID, or Status..." 
+              placeholder="Search CR Name, Jira ID, Status, or Responsible Dev..." 
               class="block w-80 pl-10 pr-3 py-2 border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
             >
           </div>
@@ -61,8 +63,15 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
                     <td class="p-3">
                       <span class="rounded px-2 py-0.5 text-xs font-medium" [class]="statusClass(p.current_status)">{{ p.current_status || '–' }}</span>
                     </td>
-                    <td class="p-3 text-slate-600">
-                      {{ getResponsibleDevs(p) }}
+                    <td class="p-3">
+                      <mat-chip-set>
+                        @for (res of p.Resources; track res.id) {
+                          <mat-chip class="custom-chip">{{ res.name }}</mat-chip>
+                        }
+                        @if (!p.Resources || p.Resources.length === 0) {
+                          <span class="text-slate-400">â€“</span>
+                        }
+                      </mat-chip-set>
                     </td>
                     <td class="p-3 text-slate-600">{{ p.start_date ? (p.start_date | date:'shortDate') : '–' }}</td>
                     <td class="p-3 text-slate-600">{{ p.qa_release_date ? (p.qa_release_date | date:'shortDate') : '–' }}</td>
@@ -133,6 +142,14 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
       </div>
     </div>
   `,
+  styles: [`
+    :host { display: block; }
+    .custom-chip {
+      --mdc-chip-label-text-size: 11px;
+      min-height: 24px !important;
+      background-color: #f1f5f9 !important;
+    }
+  `]
 })
 export class ProjectListComponent implements OnInit {
   projects = signal<Project[]>([]);
@@ -145,7 +162,8 @@ export class ProjectListComponent implements OnInit {
     return this.projects().filter(p =>
       p.cr_name.toLowerCase().includes(query) ||
       (p.jira_id || '').toLowerCase().includes(query) ||
-      (p.current_status || '').toLowerCase().includes(query)
+      (p.current_status || '').toLowerCase().includes(query) ||
+      (p.Resources || []).some(r => r.name.toLowerCase().includes(query))
     );
   });
 

@@ -204,7 +204,7 @@ export class ResourceFormComponent implements OnInit {
             default_engaged_till: r.default_engaged_till ? r.default_engaged_till.slice(0, 10) : '',
           });
           if (r.Team) {
-            this.teamSearchControl.setValue(r.Team.team_name);
+            this.teamSearchControl.setValue(r.Team.team_name, { emitEvent: false });
           }
         },
         error: () => {
@@ -222,7 +222,7 @@ export class ResourceFormComponent implements OnInit {
 
     const payload = {
       name: v.name,
-      team_id: team ? team.id : undefined,
+      team_id: team ? team.id : null,
       default_engaged_till: v.default_engaged_till || null,
     };
     this.saving.set(true);

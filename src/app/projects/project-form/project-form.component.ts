@@ -25,7 +25,7 @@ const STATUS_OPTIONS = ['SRS Grooming', 'Dev Ongoing', 'QA Ongoing', 'Live'];
     MatDatepickerModule
   ],
   template: `
-    <div class="p-4 md:p-6 max-w-2xl">
+    <div class="p-4 md:p-6 max-w-2xl mx-auto">
       <div class="flex items-center gap-4 mb-6">
         <a [routerLink]="isEdit() ? ['/projects', route.snapshot.paramMap.get('id')] : ['/projects']" class="text-slate-500 hover:text-slate-800">
           ← {{ isEdit() ? 'Back to Details' : 'Project List' }}
@@ -168,7 +168,7 @@ export class ProjectFormComponent implements OnInit {
             actual_effort: p.actual_effort ?? null,
             particulars: p.particulars ?? '',
           });
-          this.statusSearchControl.setValue(p.current_status ?? '');
+          this.statusSearchControl.setValue(p.current_status ?? '', { emitEvent: false });
         },
         error: () => this.router.navigate(['/projects']),
       });

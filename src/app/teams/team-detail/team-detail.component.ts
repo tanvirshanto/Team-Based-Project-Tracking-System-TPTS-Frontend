@@ -3,7 +3,10 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatChipsModule } from '@angular/material/chips';
 import { TeamsService, Team, TeamProject, TeamSummaryMember, ResponsibleDev } from '../../core/services/teams.service';
+import { TeamFormComponent } from '../../teams/team-form/team-form.component';
 
 const STATUS_STYLES: Record<string, string> = {
   Live: 'bg-green-100 text-green-800',
@@ -15,7 +18,7 @@ const STATUS_STYLES: Record<string, string> = {
 @Component({
   selector: 'app-team-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, MatIconModule],
+  imports: [CommonModule, RouterLink, FormsModule, MatIconModule, MatDialogModule, MatChipsModule],
   template: `
     <div class="p-4 md:p-6 space-y-6">
       <div class="flex items-center gap-4 mb-2">
@@ -40,10 +43,10 @@ const STATUS_STYLES: Record<string, string> = {
               </p>
             </div>
             <div class="flex items-center gap-3">
-              <a [routerLink]="['/teams', t.id, 'edit']" class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 font-semibold hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm">
+              <button (click)="editTeam()" class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 font-semibold hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm">
                 <i class="pi pi-pencil"></i>
                 Edit Team
-              </a>
+              </button>
             </div>
           </div>
 
@@ -94,7 +97,7 @@ const STATUS_STYLES: Record<string, string> = {
                   <input 
                     type="text" 
                     [(ngModel)]="searchFilter" 
-                    placeholder="Search CR Name, Jira ID, or Status..." 
+                    placeholder="Search CR Name, Jira ID, Status, or Responsible Dev..." 
                     class="block w-96 pl-10 pr-3 py-2 border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white shadow-sm"
                   >
                 </div>
@@ -144,9 +147,16 @@ const STATUS_STYLES: Record<string, string> = {
                             {{ p.current_status }}
                            </span>
                          </td>
-                         <td class="p-4 text-slate-600 italic">
-                           {{ getResponsibleDevs(p) }}
-                         </td>
+                          <td class="p-4">
+                            <mat-chip-set>
+                              @for (dev of p.responsible_devs; track dev.id) {
+                                <mat-chip class="custom-chip-sm">{{ dev.name }}</mat-chip>
+                              }
+                              @if (!p.responsible_devs || p.responsible_devs.length === 0) {
+                                <span class="text-slate-400 font-medium">–</span>
+                              }
+                            </mat-chip-set>
+                          </td>
                          <td class="p-4 text-slate-600 whitespace-nowrap">{{ p.start_date ?? '–' }}</td>
                         <td class="p-4 text-slate-600 whitespace-nowrap">{{ p.qa_release_date ?? '–' }}</td>
                         <td class="p-4 text-slate-600 whitespace-nowrap">{{ p.uat_release_date ?? '–' }}</td>
@@ -206,11 +216,17 @@ const STATUS_STYLES: Record<string, string> = {
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
     .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+    .custom-chip-sm {
+      --mdc-chip-label-text-size: 11px;
+      min-height: 24px !important;
+      background-color: #f1f5f9 !important;
+    }
   `]
 })
 export class TeamDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private teamsService = inject(TeamsService);
+  private dialog = inject(MatDialog);
 
   loading = signal(true);
   team = signal<Team | null>(null);
@@ -327,6 +343,22 @@ export class TeamDetailComponent implements OnInit {
 
   goToPage(pg: number) {
     this.currentPage.set(pg);
+  }
+
+  editTeam() {
+    const t = this.team();
+    if (!t) return;
+
+    const dialogRef = this.dialog.open(TeamFormComponent, {
+      width: '500px',
+      data: { id: t.id }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.loadTeamData(t.id);
+      }
+    });
   }
 
   statusClass(status: string): string {

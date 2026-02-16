@@ -55,4 +55,26 @@ export class ProjectsService {
   delete(id: number): Observable<{ message?: string }> {
     return this.http.delete<{ message?: string }>(`${environment.apiUrl}/projects/${id}`);
   }
+
+  // Project Activities
+  getActivities(projectId: number): Observable<ProjectActivity[]> {
+    return this.http.get<ProjectActivity[]>(`${environment.apiUrl}/project-activities/project/${projectId}`);
+  }
+
+  addActivity(data: Partial<ProjectActivity>): Observable<ProjectActivity> {
+    return this.http.post<ProjectActivity>(`${environment.apiUrl}/project-activities`, data);
+  }
+
+  updateActivity(id: number, data: Partial<ProjectActivity>): Observable<ProjectActivity> {
+    return this.http.put<ProjectActivity>(`${environment.apiUrl}/project-activities/${id}`, data);
+  }
+}
+
+export interface ProjectActivity {
+  id: number;
+  title: string;
+  description: string;
+  project_id: number;
+  createdAt?: string;
+  updatedAt?: string;
 }

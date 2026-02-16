@@ -1,12 +1,15 @@
 import { Component, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, Router } from '@angular/router';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { TeamsService, Team } from '../../core/services/teams.service';
+import { TeamFormComponent } from '../../teams/team-form/team-form.component';
+import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 
 @Component({
   selector: 'app-team-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, MatDialogModule],
   template: `
     <div class="space-y-4">
       <!-- Team cards grid -->
@@ -19,8 +22,7 @@ import { TeamsService, Team } from '../../core/services/teams.service';
             <!-- Actions -->
             <div class="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <button 
-                [routerLink]="['/teams', team.id, 'edit']"
-                (click)="$event.stopPropagation()"
+                (click)="$event.stopPropagation(); editTeam(team)"
                 class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 hover:bg-blue-600 hover:text-white flex items-center justify-center transition-all shadow-sm"
                 title="Edit Team"
               >
@@ -61,7 +63,7 @@ import { TeamsService, Team } from '../../core/services/teams.service';
 
       @if (teams().length === 0) {
         <div class="p-12 text-center rounded-2xl border-2 border-dashed border-slate-200">
-            <p class="text-slate-500 font-medium italic">No teams available. Create one to get started!</p>
+            <p class="text-slate-500 font-medium italic">No teams available. <button (click)="createTeam()" class="text-blue-600 hover:underline">Create one</button> to get started!</p>
         </div>
       }
     </div>
@@ -70,6 +72,7 @@ import { TeamsService, Team } from '../../core/services/teams.service';
 export class TeamDashboardComponent {
   private teamsService = inject(TeamsService);
   private router = inject(Router);
+  private dialog = inject(MatDialog);
 
   teams = signal<Team[]>([]);
 
@@ -84,14 +87,52 @@ export class TeamDashboardComponent {
     });
   }
 
+  createTeam() {
+    const dialogRef = this.dialog.open(TeamFormComponent, {
+      width: '500px',
+      data: {}
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.loadTeams();
+      }
+    });
+  }
+
+  editTeam(team: Team) {
+    const dialogRef = this.dialog.open(TeamFormComponent, {
+      width: '500px',
+      data: { id: team.id }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.loadTeams();
+      }
+    });
+  }
+
   deleteTeam(team: Team) {
-    if (confirm(`Are you sure you want to delete team "${team.team_name}"? This action cannot be undone.`)) {
-      this.teamsService.delete(team.id).subscribe({
-        next: () => {
-          this.loadTeams();
-        },
-        error: (err) => alert(err.error?.error || 'Delete failed'),
-      });
-    }
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '400px',
+      data: {
+        title: 'Delete Team',
+        message: `Are you sure you want to delete team "${team.team_name}"? This action cannot be undone.`,
+        confirmText: 'Delete',
+        color: 'warn'
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.teamsService.delete(team.id).subscribe({
+          next: () => {
+            this.loadTeams();
+          },
+          error: (err) => alert(err.error?.error || 'Delete failed'),
+        });
+      }
+    });
   }
 }

@@ -29,10 +29,10 @@ import { ResourceFormComponent } from '../resource-form/resource-form.component'
             >
           </div>
         </div>
-        <a routerLink="/resources/new" class="rounded-lg bg-blue-600 text-white px-4 py-2 font-medium hover:bg-blue-700 shadow-sm transition-all active:scale-95 flex items-center gap-2">
+        <button (click)="createResource()" class="rounded-lg bg-blue-600 text-white px-4 py-2 font-medium hover:bg-blue-700 shadow-sm transition-all active:scale-95 flex items-center gap-2">
           <mat-icon class="scale-90">add</mat-icon>
           Create Resource
-        </a>
+        </button>
       </div>
 
       <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -113,7 +113,7 @@ import { ResourceFormComponent } from '../resource-form/resource-form.component'
           }
 
           @if (filteredResources().length === 0) {
-            <p class="p-8 text-center text-slate-500">No resources found. @if(searchFilter()) { Try adjusting your search. } @else { <a routerLink="/resources/new" class="text-blue-600 hover:underline">Create one</a>. }</p>
+            <p class="p-8 text-center text-slate-500">No resources found. @if(searchFilter()) { Try adjusting your search. } @else { <button (click)="createResource()" class="text-blue-600 hover:underline">Create one</button>. }</p>
           }
         }
       </div>
@@ -175,6 +175,19 @@ export class ResourceListComponent implements OnInit {
         this.resources.set([]);
         this.loading.set(false);
       },
+    });
+  }
+
+  createResource() {
+    const dialogRef = this.dialog.open(ResourceFormComponent, {
+      width: '500px',
+      data: {} // No id for creation
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.loadResources();
+      }
     });
   }
 

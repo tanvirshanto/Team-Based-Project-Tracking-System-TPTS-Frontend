@@ -4,8 +4,9 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { ProjectsService, Project } from '../../core/services/projects.service';
+import { ProjectsService, Project, ProjectActivity } from '../../core/services/projects.service';
 import { ProjectMappingDialogComponent } from './project-mapping-dialog.component';
+import { ProjectActivityFormComponent } from '../project-activity-form/project-activity-form.component';
 
 @Component({
   selector: 'app-project-view',
@@ -25,6 +26,9 @@ import { ProjectMappingDialogComponent } from './project-mapping-dialog.componen
           <a [routerLink]="['/projects', project()?.id, 'edit']" mat-stroked-button color="primary">
             <mat-icon>edit</mat-icon> Edit Project
           </a>
+          <button (click)="onAddActivity()" mat-stroked-button color="accent">
+            <mat-icon>add_chart</mat-icon> Add Activity
+          </button>
           <button (click)="onManageResources()" mat-flat-button color="primary">
             <mat-icon>group_add</mat-icon> Manage Resources
           </button>
@@ -139,6 +143,52 @@ import { ProjectMappingDialogComponent } from './project-mapping-dialog.componen
               </div>
             </div>
           </div>
+
+          <!-- Project Activities -->
+          <div class="mt-8">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <mat-icon class="text-indigo-600">history</mat-icon>
+                Project Activities
+              </h2>
+            </div>
+            
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              @if (activitiesLoading()) {
+                <div class="p-8 text-center text-slate-500">Loading activities...</div>
+              } @else {
+                <table class="w-full text-sm">
+                  <thead class="bg-slate-50 border-b border-slate-100">
+                    <tr class="text-left text-slate-500 font-bold">
+                      <th class="p-4">Title</th>
+                      <th class="p-4">Description</th>
+                      <th class="p-4 w-40">Created Date</th>
+                      <th class="p-4 w-20">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (act of activities(); track act.id) {
+                      <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                        <td class="p-4 font-bold text-slate-800">{{ act.title }}</td>
+                        <td class="p-4 text-slate-600">{{ act.description }}</td>
+                        <td class="p-4 text-slate-500 text-xs">{{ act.createdAt | date:'medium' }}</td>
+                        <td class="p-4">
+                          <button (click)="onEditActivity(act)" mat-icon-button class="text-slate-400 hover:text-blue-600 transition-colors">
+                            <mat-icon class="scale-75">edit</mat-icon>
+                          </button>
+                        </td>
+                      </tr>
+                    }
+                    @if (activities().length === 0) {
+                      <tr>
+                        <td colspan="4" class="p-8 text-center text-slate-400 italic">No activities recorded for this project yet.</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              }
+            </div>
+          </div>
         } @else {
           <div class="p-12 text-center bg-white rounded-xl border border-slate-200 shadow-sm">
             <p class="text-slate-500 font-medium">Project not found or failed to load.</p>
@@ -158,12 +208,15 @@ export class ProjectViewComponent implements OnInit {
   private dialog = inject(MatDialog);
 
   project = signal<Project | null>(null);
+  activities = signal<ProjectActivity[]>([]);
   loading = signal(true);
+  activitiesLoading = signal(false);
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.loadProject(+id);
+      this.loadActivities(+id);
     }
   }
 
@@ -194,6 +247,52 @@ export class ProjectViewComponent implements OnInit {
     dialogRef.afterClosed().subscribe(result => {
       if (result) {
         this.loadProject(p.id);
+      }
+    });
+  }
+
+  loadActivities(projectId: number) {
+    this.activitiesLoading.set(true);
+    this.projectsService.getActivities(projectId).subscribe({
+      next: (list) => {
+        this.activities.set(list);
+        this.activitiesLoading.set(false);
+      },
+      error: () => {
+        this.activities.set([]);
+        this.activitiesLoading.set(false);
+      }
+    });
+  }
+
+  onAddActivity() {
+    const p = this.project();
+    if (!p) return;
+
+    const dialogRef = this.dialog.open(ProjectActivityFormComponent, {
+      width: '500px',
+      data: { projectId: p.id }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.loadActivities(p.id);
+      }
+    });
+  }
+
+  onEditActivity(activity: ProjectActivity) {
+    const p = this.project();
+    if (!p) return;
+
+    const dialogRef = this.dialog.open(ProjectActivityFormComponent, {
+      width: '500px',
+      data: { projectId: p.id, activity }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.loadActivities(p.id);
       }
     });
   }
